@@ -1,0 +1,10 @@
+[
+    {
+        "id": "edit",
+        "children":
+        [
+            { "id": "wrap" },
+            { "command": "morse", "caption": "Convert to Morse Code" }
+        ]
+    }
+]
