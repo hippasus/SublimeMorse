@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 import sublime, sublime_plugin, string
 
 char_code_map = {
@@ -42,10 +45,12 @@ class MorseCommand(sublime_plugin.TextCommand):
 		invalid_char_found = False
 
 		def get_coded_selection():
-			original = self.view.substr(currentSelection)
-			original_lower = string.lower(original)
+			text = self.view.substr(currentSelection)
+			return get_coded_text(text)
 
-			lines = original_lower.split(line_ending)
+		def get_coded_text(text):
+			text_lower = string.lower(text)
+			lines = text_lower.split(line_ending)
 			result = get_coded_lines(lines)
 			return result
 
@@ -109,4 +114,4 @@ class MorseCommand(sublime_plugin.TextCommand):
 		string = string.replace('\r\n', '\n').replace('\r', '\n')
 		line_ending = self._get_line_ending()
 		string = string.replace('\n', line_ending)
-		return string 
+		return string
