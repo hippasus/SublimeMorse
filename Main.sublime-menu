@@ -4,7 +4,16 @@
         "children":
         [
             { "id": "wrap" },
-            { "command": "morse", "caption": "Convert to Morse Code" }
+
+            {
+                "caption": "Morse",
+                "mnemonic": "M",
+                "children":
+                [
+                    { "command": "morse_encode", "caption": "Convert Text to Morse Code" },
+                    { "command": "morse_decode", "caption": "Convert Morse Code to Text" }
+                ]
+            }
         ]
     }
 ]

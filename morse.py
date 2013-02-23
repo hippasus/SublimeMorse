@@ -22,13 +22,29 @@ char_code_map = {
 	"!": "-.-.--",	"@": ".--.-."
 }
 
+code_char_map = {}
+
 word_separator_code = " / "
 
-class MorseCommand(sublime_plugin.TextCommand):
+def _get_line_ending(view):
+	line_ending_setting = view.settings().get('default_line_ending')
+	if line_ending_setting == 'windows':
+		return '\r\n'
+	elif line_ending_setting == 'mac':
+		return '\r'
+	return '\n'
+
+def _get_key_by_match_value(dict, v):
+	for k in dict.keys():
+		if v == dict[k]:
+			return k
+	return None
+
+class MorseEncodeCommand(sublime_plugin.TextCommand):
 	def run(self, edit):
 		newSelections = []
 
-		edit = self.view.begin_edit('morse')
+		edit = self.view.begin_edit('morse_encode')
 
 		for currentSelection in self.view.sel():
 			newSelections.append(self.convert_to_morse_code(edit, currentSelection))
@@ -41,7 +57,7 @@ class MorseCommand(sublime_plugin.TextCommand):
 		self.view.end_edit(edit)
 
 	def convert_to_morse_code(self, edit, currentSelection):
-		line_ending = self._get_line_ending()
+		line_ending = _get_line_ending(self.view)
 		invalid_char_found = False
 
 		def get_coded_selection():
@@ -77,11 +93,17 @@ class MorseCommand(sublime_plugin.TextCommand):
 
 		def get_coded_word(word):
 			coded_word = ""
+			prev_ok = True
 			for char in word:
 				coded_char, ok = get_coded_char(char)
-				coded_word += coded_char
 				if ok:
-					coded_word += " "
+					coded_char += " "
+					if not prev_ok:
+						coded_char = " " + coded_char
+
+				coded_word += coded_char
+				prev_ok = ok
+
 			coded_word = coded_word.strip()
 			return coded_word
 
@@ -102,16 +124,81 @@ class MorseCommand(sublime_plugin.TextCommand):
 
 		return sublime.Region(currentSelection.begin(), currentSelection.begin() + len(output))
 
-	def _get_line_ending(self):
-		line_ending_setting = self.view.settings().get('default_line_ending')
-		if line_ending_setting == 'windows':
-			return '\r\n'
-		elif line_ending_setting == 'mac':
-			return '\r'
-		return '\n'
+class MorseDecodeCommand(sublime_plugin.TextCommand):
+	def run(self, edit):
+		newSelections = []
 
-	def normalize_line_endings(self, string):
-		string = string.replace('\r\n', '\n').replace('\r', '\n')
-		line_ending = self._get_line_ending()
-		string = string.replace('\n', line_ending)
-		return string
+		edit = self.view.begin_edit('morse_decode')
+
+		for currentSelection in self.view.sel():
+			newSelections.append(self.convert_to_text(edit, currentSelection))
+
+		self.view.sel().clear()
+
+		for newSelection in newSelections:
+			self.view.sel().add(newSelection)
+
+		self.view.end_edit(edit)
+
+	def convert_to_text(self, edit, currentSelection):
+		line_ending = _get_line_ending(self.view)
+		invalid_code_found = False
+
+		def decode_selection():
+			text = self.view.substr(currentSelection)
+			return decode_text(text)
+
+		def decode_text(text):
+			lines = text.split(line_ending)
+			return decode_lines(lines)
+
+		def decode_lines(lines):
+			l, decoded_lines = len(lines), ""
+
+			for line in lines:
+				decoded_lines += decode_line(line)
+				decoded_lines += line_ending
+			if l > 0:
+				decoded_lines = decoded_lines[:-len(line_ending)]
+			return decoded_lines
+
+		def decode_line(line):
+			words = line.split(word_separator_code)
+			l, decoded_line = len(words), ""
+
+			for word in words:
+				decoded_line += decode_word(word)
+				decoded_line += " "
+			if l > 0:
+				decoded_line = decoded_line[:-1]
+			return decoded_line
+
+		def decode_word(word_codes):
+			characters = word_codes.split()
+			decoded_word = ""
+			for char in characters:
+				decoded_word += decode_char(char)
+			return decoded_word
+
+		def decode_char(char_code):
+			char_code_lower = string.lower(char_code)
+			try:
+				char = code_char_map[char_code_lower]
+			except KeyError:
+				char = _get_key_by_match_value(char_code_map, char_code_lower)
+				if char is None:
+					invalid_code_found = True
+					return char_code
+				else:
+					code_char_map[char_code_lower] = char
+
+			return char
+
+		output = decode_selection()
+
+		if invalid_code_found:
+			print "invalid Morse code found and ignored."
+
+		self.view.replace(edit, currentSelection, output)
+
+		return sublime.Region(currentSelection.begin(), currentSelection.begin() + len(output))
